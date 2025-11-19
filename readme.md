@@ -50,7 +50,7 @@ If you want to contribute or build the project yourself, follow these steps:
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
+    git clone https://github.com/CySlaytor/RARPEditor.git
     ```
 2.  Open the `RARPEditor.sln` solution file in Visual Studio.
 3.  Build the solution (`Ctrl+Shift+B` or `Build > Build Solution`).
