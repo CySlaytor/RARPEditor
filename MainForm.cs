@@ -19,6 +19,9 @@ namespace RARPEditor.Forms
         private string _currentFilePath = "";
         private bool _isDirty;
 
+        // Cache for Code Notes to pass to new tabs/controls
+        private List<CodeNote> _currentNotes = new List<CodeNote>();
+
         private readonly Timer _undoDebounceTimer;
         private const int DebounceIntervalMs = 500;
 
@@ -342,6 +345,10 @@ namespace RARPEditor.Forms
             _currentFilePath = "";
             _isDirty = false;
 
+            // Clear notes and reset editor state
+            _currentNotes.Clear();
+            _displayLogicEditor.SetNotes(_currentNotes);
+
             _stateManager.Clear();
             _stateManager.RecordState(_currentScript.Clone());
             UpdateUndoRedoMenu();
@@ -417,13 +424,19 @@ namespace RARPEditor.Forms
                 CheckAndCreateDefaultDisplayString();
                 _currentFilePath = filePath;
 
+                // Load Notes!
+                _currentNotes = CodeNoteLoader.LoadNotesForRichFile(filePath);
+
+                // Pass notes to the editor (which will pass it to trigger editors)
+                _displayLogicEditor.SetNotes(_currentNotes);
+
                 _stateManager.Clear();
                 _stateManager.RecordState(_currentScript.Clone());
                 UpdateUndoRedoMenu();
 
                 PopulateProjectExplorer();
                 ValidateAllNodes();
-                UpdateStatus($"Successfully loaded '{Path.GetFileName(_currentFilePath)}'.");
+                UpdateStatus($"Successfully loaded '{Path.GetFileName(_currentFilePath)}' with {_currentNotes.Count} code notes.");
                 _isDirty = false;
                 UpdateFormTitle();
                 AddRecentFile(filePath);
@@ -778,6 +791,8 @@ namespace RARPEditor.Forms
                     _lookupEditor.Visible = false;
                     _formatterEditor.Visible = false;
                     welcomeLabel.Visible = false;
+                    // Pass existing notes to ensure tooltips/aliases work
+                    _displayLogicEditor.SetNotes(_currentNotes);
                     _displayLogicEditor.LoadDisplayString(displayString, _currentScript, OnDataChanged);
                     _displayLogicEditor.Visible = true;
                     _livePreviewControl.LoadDisplayString(displayString, _currentScript);
@@ -1448,4 +1463,3 @@ namespace RARPEditor.Forms
         #endregion
     }
 }
-#nullable restore

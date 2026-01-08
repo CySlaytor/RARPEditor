@@ -3,6 +3,7 @@ using RARPEditor.Forms;
 using System.Text;
 using System.Text.RegularExpressions;
 using RARPEditor.Parsers;
+using RARPEditor.Utilities;
 
 namespace RARPEditor.Controls
 {
@@ -26,6 +27,9 @@ namespace RARPEditor.Controls
         private bool _isProgrammaticallyChanging;
         private string _originalMasterTemplate = "";
 
+        // Cache for Code Notes
+        private List<CodeNote> _notes = new List<CodeNote>();
+
         private readonly TriggerEditorControl _conditionEditor;
         // Pool used for Macro Value Groups
         private readonly List<TriggerEditorControl> _triggerEditorPool = new();
@@ -47,6 +51,26 @@ namespace RARPEditor.Controls
 
             // Add to layout (row 2 is the flexible content area)
             logicEditorTableLayoutPanel.Controls.Add(_conditionEditor, 0, 2);
+        }
+
+        // Method to receive notes from MainForm
+        public void SetNotes(List<CodeNote> notes)
+        {
+            _notes = notes;
+            // Propagate to current editors
+            _conditionEditor.SetNotes(_notes);
+            foreach (var editor in _triggerEditorPool)
+            {
+                editor.SetNotes(_notes);
+            }
+            // If any active tabs exist, they contain editors that might be in the control hierarchy but not the pool
+            foreach (TabPage page in valueGroupTabControl.TabPages)
+            {
+                if (page.Controls.Count > 0 && page.Controls[0] is TriggerEditorControl editor)
+                {
+                    editor.SetNotes(_notes);
+                }
+            }
         }
 
         public void LoadDisplayString(RichPresenceDisplayString displayString, RichPresenceScript script, Action dataChangedAction)
@@ -90,10 +114,13 @@ namespace RARPEditor.Controls
             {
                 var editor = _triggerEditorPool.First();
                 _triggerEditorPool.RemoveAt(0);
+                // Ensure note context is fresh
+                editor.SetNotes(_notes);
                 return editor;
             }
             var newEditor = new TriggerEditorControl { Dock = DockStyle.Fill };
             newEditor.StatusUpdateRequested += (s, msg) => StatusUpdateRequested?.Invoke(this, msg);
+            newEditor.SetNotes(_notes); // Apply notes
             return newEditor;
         }
 
@@ -309,8 +336,11 @@ namespace RARPEditor.Controls
                 var editor = GetOrCreateTriggerEditor();
 
                 editor.GroupSeparator = '$';
-                editor.TriggerText = string.Join("_", group.Conditions.Select(TriggerEditorControl.ConditionToString));
+                editor.TriggerText = string.Join("_", group.Conditions.Select(LogicFormatter.ConditionToString));
                 editor.GroupBoxText = $"Logic for Value Group {i + 1}";
+
+                // Pass notes to the fresh tab editor
+                editor.SetNotes(_notes);
 
                 var field = typeof(TriggerEditorControl).GetField("TriggerTextChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 if (field != null) field.SetValue(editor, null);
@@ -399,7 +429,6 @@ namespace RARPEditor.Controls
                 }
             }
 
-            // Add Built-in Formatters submenu
             if (RichPresenceLookup.BuiltInMacros.Any())
             {
                 if (lookups.Any() || formatters.Any())
@@ -408,7 +437,6 @@ namespace RARPEditor.Controls
                 }
 
                 var builtInMenu = new ToolStripMenuItem("Built-in Formatters");
-                // Use the BuiltInMacros Keys (e.g. Number, Score) for the menu
                 foreach (var macroName in RichPresenceLookup.BuiltInMacros.Keys)
                 {
                     builtInMenu.DropDownItems.Add(new ToolStripMenuItem($"Insert {{{macroName}}}", null, InsertMacro_Click) { Tag = macroName });
@@ -431,13 +459,7 @@ namespace RARPEditor.Controls
             if (form.ShowDialog() == DialogResult.OK)
             {
                 NewMacroRequested?.Invoke(this, new NewMacroEventArgs(form.MacroName, form.MacroType));
-
-                // Insert text, triggering logic updates.
-                // This fires TextChanged event synchronously.
                 masterDisplayTextBox.SelectedText = $"{{{form.MacroName}}}";
-
-                // After insertion (and text processing), automatically select the new macro in the dropdown
-                // so the user can immediately start editing its logic.
                 if (logicSelectorComboBox.Items.Contains(form.MacroName))
                 {
                     logicSelectorComboBox.SelectedItem = form.MacroName;
