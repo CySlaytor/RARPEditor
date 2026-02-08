@@ -236,6 +236,30 @@ namespace RARPEditor.Forms
             }
         }
 
+        private void RefactorMacroReferences(string oldName, string newName)
+        {
+            if (string.IsNullOrEmpty(oldName) || oldName == newName) return;
+
+            bool changed = false;
+            foreach (var displayString in _currentScript.DisplayStrings)
+            {
+                foreach (var part in displayString.Parts)
+                {
+                    if (part.IsMacro && part.Text == oldName)
+                    {
+                        part.Text = newName;
+                        changed = true;
+                    }
+                }
+            }
+
+            if (changed)
+            {
+                UpdateStatus($"Refactored references from '{oldName}' to '{newName}'.");
+                PopulateProjectExplorer();
+            }
+        }
+
         #region Undo / Redo
 
         private void ApplyState(RichPresenceScript state)

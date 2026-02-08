@@ -81,6 +81,8 @@ namespace RARPEditor.Controls
         {
             if (_currentLookup != null && _originalName != _currentLookup.Name)
             {
+                string newName = nameTextBox.Text;
+                RefactorMacroReferences(_originalName, newName);
                 _dataChangedAction?.Invoke();
                 _originalName = _currentLookup.Name;
             }
@@ -92,6 +94,29 @@ namespace RARPEditor.Controls
             {
                 _dataChangedAction?.Invoke();
                 _originalDefault = _currentLookup.Default ?? "";
+            }
+        }
+
+        private void RefactorMacroReferences(string oldName, string newName)
+        {
+            if (_currentScript == null || string.IsNullOrEmpty(oldName) || oldName == newName) return;
+
+            int updateCount = 0;
+            foreach (var displayString in _currentScript.DisplayStrings)
+            {
+                foreach (var part in displayString.Parts)
+                {
+                    if (part.IsMacro && part.Text == oldName)
+                    {
+                        part.Text = newName;
+                        updateCount++;
+                    }
+                }
+            }
+
+            if (updateCount > 0)
+            {
+                StatusUpdateRequested?.Invoke(this, $"Smart Rename: Updated {updateCount} reference(s) from '{oldName}' to '{newName}'.");
             }
         }
 

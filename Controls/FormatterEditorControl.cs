@@ -12,6 +12,7 @@ namespace RARPEditor.Controls
         // Store the original name to prevent creating undo states when no changes are made.
         private string _originalName = "";
 
+        public event EventHandler<string>? StatusUpdateRequested;
         public FormatterEditorControl()
         {
             InitializeComponent();
@@ -53,14 +54,37 @@ namespace RARPEditor.Controls
             // The expensive data changed action is no longer called on every keystroke.
         }
 
-        // Create a single, atomic undo action when editing is complete.
+        private void RefactorMacroReferences(string oldName, string newName)
+        {
+            if (_currentScript == null || string.IsNullOrEmpty(oldName) || oldName == newName) return;
+
+            int updateCount = 0;
+            foreach (var displayString in _currentScript.DisplayStrings)
+            {
+                foreach (var part in displayString.Parts)
+                {
+                    if (part.IsMacro && part.Text == oldName)
+                    {
+                        part.Text = newName;
+                        updateCount++;
+                    }
+                }
+            }
+
+            if (updateCount > 0)
+            {
+                StatusUpdateRequested?.Invoke(this, $"Smart Rename: Updated {updateCount} reference(s) from '{oldName}' to '{newName}'.");
+            }
+        }
+
         private void nameTextBox_Leave(object sender, EventArgs e)
         {
-            // Only trigger the data changed action if the text has actually changed.
             if (_currentFormatter != null && _originalName != _currentFormatter.Name)
             {
+                string newName = nameTextBox.Text;
+                RefactorMacroReferences(_originalName, newName);
                 _dataChangedAction?.Invoke();
-                _originalName = _currentFormatter.Name; // Update the original value for the next comparison
+                _originalName = _currentFormatter.Name;
             }
         }
 
